@@ -21,7 +21,8 @@ function getItem(label, key, icon, children, type) {
 
 const App = () => {
   const [imageUrl, setImageUrl] = useState(null);
-  const [drawingToolCursor, setDrawingToolCursor] = useState('');
+  const [drawingToolCursor, setDrawingToolCursor] = useState('grab');
+  const [selectedTool, setSelectedTool] = useState('')
 
   const items = [
     getItem('Drawing Tools', 'drawingTools', <FormatPainterOutlined />, [
@@ -31,42 +32,46 @@ const App = () => {
     {
       type: 'divider',
     },
-    getItem('File Operations', 'sub2', <AppstoreOutlined />, [
-      getItem('Save File', '5'),
+    getItem('File Operations', 'file', <AppstoreOutlined />, [
+      getItem('Save File', 'save'),
     ]),
   ];
 
 
   const onDrop = useCallback((acceptedFiles) => {
     if (acceptedFiles.length > 0) {
-      const zipFile = acceptedFiles[0];
+      const droppedFile = acceptedFiles[0];
 
-      // Read the zip file using FileReader
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const zipData = event.target.result;
+      // Check if the dropped file is a zip file
+      if (droppedFile.type === 'application/zip') {
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+          const zipData = event.target.result;
 
-        // Create a new JSZip instance and load the zip file
-        const zip = new JSZip();
-        const zipFile = await zip.loadAsync(zipData);
+          // Create a new JSZip instance and load the zip file
+          const zip = new JSZip();
+          const zipFile = await zip.loadAsync(zipData);
 
-        // Extract the first PNG file from the zip file
-        const pngFile = Object.values(zipFile.files).find(
-            (entry) => entry.name.toLowerCase().endsWith('.png')
-        );
+          // Extract the first PNG file from the zip file
+          const pngFile = Object.values(zipFile.files).find(
+              (entry) => entry.name.toLowerCase().endsWith('.png')
+          );
 
-        if (pngFile) {
-          // Read the contents of the PNG file
-          const pngData = await pngFile.async('base64');
+          if (pngFile) {
+            // Read the contents of the PNG file
+            const pngData = await pngFile.async('base64');
 
-          // Display the PNG image
-          setImageUrl(`data:image/png;base64,${pngData}`);
-        } else {
-          console.error('No PNG file found in the zip archive.');
-        }
-      };
+            // Display the PNG image
+            setImageUrl(`data:image/png;base64,${pngData}`);
+          } else {
+            console.error('No PNG file found in the zip archive.');
+          }
+        };
 
-      reader.readAsArrayBuffer(zipFile);
+        reader.readAsArrayBuffer(droppedFile);
+      } else {
+        alert('Please drop a zip file.');
+      }
     }
   }, []);
 
@@ -79,10 +84,13 @@ const App = () => {
     switch (e.key) {
       case 'pen':
       case 'brush':
+        setSelectedTool(e.key)
         setDrawingToolCursor('crosshair')
         break
       default:
-        setDrawingToolCursor('auto')
+        setSelectedTool(e.key)
+        setDrawingToolCursor('grab')
+        break
     }
   };
 
@@ -105,7 +113,7 @@ const App = () => {
                   <Menu
                       onClick={onClick}
                       defaultSelectedKeys={['1']}
-                      defaultOpenKeys={['sub1']}
+                      defaultOpenKeys={['drawingTools']}
                       className={'menu'}
                       mode="inline"
                       items={items}
@@ -149,9 +157,9 @@ const App = () => {
                    */
                 }
                 <div style={{
-                  cursor: drawingToolCursor
+                  cursor: drawingToolCursor,
                 }}>
-                    <DrawingTool imageUrl={imageUrl}/>
+                    <DrawingTool imageUrl={imageUrl} selectedTool={selectedTool}/>
                 </div>
               </>
           )
