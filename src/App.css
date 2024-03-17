@@ -63,6 +63,15 @@
   color: firebrick;
 }
 
+.delete-icon-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: white;
+  font-weight: bold;
+}
+
 .row {
   flex-direction: row;
   display: flex;

@@ -104,7 +104,9 @@ const HomeContainer = () => {
 
     return (
         <>
-        <HeaderComponent onClickDelete={() => setImageUrl(null)} />
+        <HeaderComponent
+            isDeleteVisible={imageUrl !== null}
+            onClickDelete={() => setImageUrl(null)} />
     <Content>
         <div className={'row'}>
             {
