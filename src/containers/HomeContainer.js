@@ -19,7 +19,6 @@ function getItem(label, key, icon, children, type) {
         type,
     };
 }
-
 const HomeContainer = () => {
     const [imageUrl, setImageUrl] = useState(null);
     const [drawingToolCursor, setDrawingToolCursor] = useState('grab');
@@ -35,9 +34,6 @@ const HomeContainer = () => {
         {
             type: 'divider',
         },
-        getItem('File Operations', 'file', <AppstoreOutlined />, [
-            getItem('Save File', 'save'),
-        ]),
         getItem('Labeled Areas', 'labeledAreas', <FlagOutlined />, labeledAreas.map((area, index) => {
             return getItem(`Area ${index + 1}: ${area.value}`, area.key, <CompassOutlined />, null, 'area')
         })),
@@ -101,56 +97,72 @@ const HomeContainer = () => {
         }
     }, []);
 
+    const handleEditArea = (newValue, area) => {
+        if(labeledAreas.some(a => a.key === area.key)) {
+            const newAreas = labeledAreas.map(a => {
+                if(a.key === area.key) {
+                    a.value = newValue
+                }
+                return a
+            })
+            setLabeledAreas(newAreas)
+        }
+    }
+
+    const handleOnClickDelete = () => {
+        setImageUrl(null)
+        setSelectedTool('')
+        setSelectedArea(null)
+    }
 
     return (
         <>
         <HeaderComponent
             isDeleteVisible={imageUrl !== null}
-            onClickDelete={() => setImageUrl(null)} />
-    <Content>
-        <div className={'row'}>
-            {
-                imageUrl && (
-                    <Menu
-                        onClick={onClick}
-                        defaultSelectedKeys={['1']}
-                        defaultOpenKeys={['drawingTools', 'labeledAreas']}
-                        className={'menu'}
-                        mode="inline"
-                        items={items}
-                    />
-                )
-            }
-            {
-                !imageUrl && (
-                    <DragAndDrop onDrop={onDrop}/>
-                )
-            }
-            {
-                imageUrl && (
-                        <CanvasContainer imageUrl={imageUrl}
-                                            drawingToolCursor={drawingToolCursor}
-                                            selectedTool={selectedTool}
-                                            selectedArea={selectedArea}
-                                            labeledAreas={labeledAreas}
-                                            onAreaLabeled={(area) => setLabeledAreas([...labeledAreas, area])}
-                                            onDeleteArea={(area) => {
-                                                setLabeledAreas(labeledAreas.filter(a => a.key !== area.key))
-                                                setSelectedArea(null)
-                                            }}
-                                            onEditArea={(newValue, area) => {
-                                                setLabeledAreas(labeledAreas.map(a => {
-                                                    if (a.key === area.key) {
-                                                        a.value = newValue
-                                                    }
-                                                    return a
-                                                }))
-                                            }}
+            onClickDelete={handleOnClickDelete}/>
+        <Content style={{
+            backgroundColor: 'white'
+        }}>
+            <div className={'row'}>
+                {
+                    imageUrl && (
+                        <Menu
+                            onClick={onClick}
+                            defaultSelectedKeys={['1']}
+                            defaultOpenKeys={['drawingTools', 'labeledAreas']}
+                            className={'menu'}
+                            mode="inline"
+                            items={items}
                         />
-                )
-            }
-        </div>
-    </Content>
+                    )
+                }
+                {
+                    !imageUrl && (
+                        <div className={'drag-area-container'}>
+                             <DragAndDrop onDrop={onDrop}/>
+                        </div>
+                    )
+                }
+                {
+                    imageUrl && (
+                            <CanvasContainer imageUrl={imageUrl}
+                                                drawingToolCursor={drawingToolCursor}
+                                                selectedTool={selectedTool}
+                                                selectedArea={selectedArea}
+                                                labeledAreas={labeledAreas}
+                                                onAreaLabeled={(area) => setLabeledAreas([...labeledAreas, area])}
+                                                onDeleteArea={(key) => {
+                                                    setLabeledAreas(labeledAreas.filter(a => a.key !== key))
+                                                    setSelectedArea(null)
+                                                }}
+                                                onEditArea={(newValue, area) => {
+                                                   handleEditArea(newValue, area)
+                                                }}
+                            />
+                    )
+                }
+            </div>
+        </Content>
             </>
     )
 }

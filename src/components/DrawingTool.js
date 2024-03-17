@@ -1,27 +1,31 @@
 import React, { useState, useEffect, useRef } from 'react';
-import {Button, Input, Space} from "antd";
-import {DeleteOutlined} from "@ant-design/icons/lib/icons";
+import { Button, Input, Space } from "antd";
+import {DeleteOutlined, EditOutlined} from "@ant-design/icons/lib/icons";
+import JSZip from 'jszip';
 
+const brushAlpha = 0.009;
 
-const brushAlpha = 0.01;
-
-const DrawingTool = ({ imageUrl,
+const DrawingTool = ({
+                       imageUrl,
                        selectedTool,
                        onAreaLabeled,
                        selectedArea,
                        labeledAreas,
                        onEditArea,
-                      onDeleteArea,
-}) => {
+                       onDeleteArea,
+                       onSave,
+                     }) => {
   const canvasRef = useRef(null);
-  const inputRef = useRef(null); // Ref for the input element
+  const inputRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [context, setContext] = useState(null);
   const [drawnArea, setDrawnArea] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [areaValue, setAreaValue] = useState('');
   const [brushSize, setBrushSize] = useState(10);
   const [penColor, setPenColor] = useState('#000000');
+  const [brushColor, setBrushColor] = useState('#000000');
   const [zoomLevel, setZoomLevel] = useState(1);
   const [canvasWidth, setCanvasWidth] = useState(window.innerWidth / 1.5);
   const [canvasHeight, setCanvasHeight] = useState(window.innerHeight / 1.5);
@@ -45,6 +49,7 @@ const DrawingTool = ({ imageUrl,
 
   useEffect(() => {
     fillSelectedArea();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedArea, labeledAreas]);
 
   useEffect(() => {
@@ -52,7 +57,6 @@ const DrawingTool = ({ imageUrl,
       inputRef.current.focus();
     }
   }, [modalVisible]);
-
 
   useEffect(() => {
     setCanvasWidth(window.innerWidth / 1.5);
@@ -78,14 +82,13 @@ const DrawingTool = ({ imageUrl,
     const offsetX = (event.clientX - rect.left) * scaleX;
     const offsetY = (event.clientY - rect.top) * scaleY;
 
-    // Check if it's the first point being drawn after a zoom event
     if (isFirstPointAfterZoom) {
       context.beginPath();
       context.moveTo(offsetX, offsetY);
       setIsFirstPointAfterZoom(false);
     } else {
       context.lineTo(offsetX, offsetY);
-      context.strokeStyle = selectedTool === 'brush' ? `rgba(0, 0, 0, ${brushAlpha})` : penColor;
+      context.strokeStyle = selectedTool === 'brush' ? `rgba(${parseInt(brushColor.slice(-6, -4), 16)}, ${parseInt(brushColor.slice(-4, -2), 16)}, ${parseInt(brushColor.slice(-2), 16)}, ${brushAlpha})` : brushColor;
       context.lineWidth = selectedTool === 'brush' ? brushSize : 1;
       context.stroke();
     }
@@ -99,9 +102,8 @@ const DrawingTool = ({ imageUrl,
     } else {
       setZoomLevel(Math.max(1, zoomLevel - zoomFactor));
     }
-    setIsFirstPointAfterZoom(true); // Set isFirstPointAfterZoom to true after handling zoom
+    setIsFirstPointAfterZoom(true);
   };
-
 
   const endDrawing = () => {
     if (!(selectedTool === 'pen' || selectedTool === 'brush')) return;
@@ -120,21 +122,23 @@ const DrawingTool = ({ imageUrl,
 
   const handleModalSubmit = (event) => {
     event.preventDefault();
+
+    if(isEditing) {
+        onEditArea(areaValue, selectedArea);
+        setIsEditing(false);
+        setModalVisible(false);
+        return;
+    }
     if (!areaValue || !drawnArea) return;
 
-    // Capture the filled area coordinates
     const filledArea = getFilledAreaCoordinates(canvasRef.current, { red: 0, green: 0, blue: 0, alpha: 255 });
-
-    // Save the label value and filled area coordinates to labeledAreas
-    const newArea = { value: areaValue, coordinates: filledArea, key: areaValue + Math.floor(Math.random() * 1000000)};
+    const newArea = { value: areaValue, coordinates: filledArea, key: areaValue + Math.floor(Math.random() * 1000000) };
     onAreaLabeled(newArea);
 
-    // Reset the areaValue and close the modal
     setAreaValue('');
     setModalVisible(false);
   };
 
-  // Function to get the coordinates of the filled area
   const getFilledAreaCoordinates = (canvas, fillColor) => {
     const ctx = canvas.getContext('2d');
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -151,11 +155,12 @@ const DrawingTool = ({ imageUrl,
           alpha: data[index + 3]
         };
 
-        // Check if the pixel color matches the fill color
-        if (pixelColor.red === fillColor.red &&
+        if (
+            pixelColor.red === fillColor.red &&
             pixelColor.green === fillColor.green &&
             pixelColor.blue === fillColor.blue &&
-            pixelColor.alpha === fillColor.alpha) {
+            pixelColor.alpha === fillColor.alpha
+        ) {
           filledCoordinates.push({ x, y });
         }
       }
@@ -167,49 +172,63 @@ const DrawingTool = ({ imageUrl,
   const fillSelectedArea = () => {
     if (!context) return;
 
-    // Clear the canvas
     context.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
 
-    // Redraw the image
     if (imageUrl) {
       const img = new Image();
       img.src = imageUrl;
       img.onload = () => {
-      context.drawImage(img, 0, 0, canvasRef.current.width, canvasRef.current.height);
+        context.drawImage(img, 0, 0, canvasRef.current.width, canvasRef.current.height);
 
-
-      labeledAreas.forEach(area => {
-          context.fillStyle = penColor;
+        labeledAreas.forEach(area => {
+          context.fillStyle = brushColor;
           area.coordinates.forEach(coord => {
+            if(selectedArea) {
+              if (selectedArea.key === area.key) {
+                context.fillStyle = 'rgba(255, 255, 0, 0.5)';
+                context.fill();
+              }
+            }
             context.fillRect(coord.x, coord.y, 1, 1);
             context.fillStyle = `rgba(${parseInt(penColor.slice(-6, -4), 16)}, ${parseInt(penColor.slice(-4, -2), 16)}, ${parseInt(penColor.slice(-2), 16)}, 0.5)`;
           });
-          context.fill(); // Fill the area after setting the fillStyle
+          context.fill();
         });
 
-
-        if(selectedArea) {
-          // Fill the selected area with yellow color
+        if (selectedArea) {
           selectedArea.coordinates.forEach(coord => {
             context.fillStyle = 'rgba(255, 255, 0, 0.5)';
             context.fillRect(coord.x, coord.y, 2.5, 2.5);
           });
         }
-
-        if (selectedTool === 'pen') {
-          // Fill style is half transparent penColor
-          context.fillStyle = `rgba(${parseInt(penColor.slice(-6, -4), 16)}, ${parseInt(penColor.slice(-4, -2), 16)}, ${parseInt(penColor.slice(-2), 16)}, 0.5)`;
-          context.fill();
-        }
       };
     }
   };
 
+  const handleSave = () => {
+    const zip = new JSZip();
+
+    // Save modified image as PNG
+    const canvas = canvasRef.current;
+    const modifiedImage = canvas.toDataURL('image/png');
+    zip.file('modified_image.png', modifiedImage.split('base64,')[1], { base64: true });
+
+    // Save label file from labeledAreas
+    const labelFileContent = JSON.stringify(labeledAreas, null, 2);
+    zip.file('labels.json', labelFileContent);
+
+    zip.generateAsync({ type: 'blob' }).then((blob) => {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'drawing_tool_data.zip';
+      link.click();
+    });
+  };
+
   return (
       <div>
-        <div style={{
-          overflow: 'hidden'
-        }}>
+        <div style={{ overflow: 'hidden' }}>
           <canvas
               ref={canvasRef}
               width={canvasWidth}
@@ -222,21 +241,30 @@ const DrawingTool = ({ imageUrl,
               onWheel={handleZoom}
           />
         </div>
-        {
-            selectedTool === 'brush' && (
-                <>
-                  <label>Brush Size: </label>
-                  <input
-                      type="range"
-                      min="1"
-                      max="50"
-                      value={brushSize}
-                      onChange={(e) => setBrushSize(parseInt(e.target.value))}
-                  />
-                </>
-            )
-        }
-        {selectedTool === 'pen' && (
+        {(selectedTool === 'brush' && imageUrl)  && (
+            <>
+              <div>
+              <label>Brush Size: </label>
+              <input
+                  type="range"
+                  min="1"
+                  step="1"
+                  max="20"
+                  value={brushSize}
+                  onChange={(e) => setBrushSize(parseInt(e.target.value))}
+              />
+              </div>
+              <div>
+              <label>Brush Color: </label>
+              <input
+                  type="color"
+                  value={brushColor}
+                  onChange={(e) => setBrushColor(e.target.value)}
+              />
+              </div>
+            </>
+        )}
+        {(selectedTool === 'pen' && imageUrl) && (
             <>
               <label>Pen Color: </label>
               <input
@@ -246,44 +274,60 @@ const DrawingTool = ({ imageUrl,
               />
             </>
         )}
-        {
-          selectedArea && (
-              // 3 buttons to delete, edit and save the selected area
-                <div>
-                    <Button
-                        onClick={() => {
-                          onDeleteArea(selectedArea.key);
-                          setModalVisible(false);
-                        }}
-                        icon={<DeleteOutlined />}
-                    />
-                    <Button
-                    >
-                    Edit
-                    </Button>
-                </div>
-            )
-        }
+        {selectedArea && (
+            <div className={'row'}>
+              <p>Labeling Tools: </p>
+              <div className={'delete-area'}>
+                <Button
+                    onClick={() => {
+                      onDeleteArea(selectedArea.key);
+                      setModalVisible(false);
+                    }}
+                    icon={<DeleteOutlined />}
+                >Delete Area</Button>
+              </div>
+              <div className={'delete-area'}>
+                <Button
+                    onClick={() => {
+                        setIsEditing(true);
+                        setModalVisible(true);
+                    }}
+                    icon={<EditOutlined />}
+                >Edit Label</Button>
+              </div>
+            </div>
+        )}
         {modalVisible && (
             <div className="modal">
               <p>Enter the label value of selected area: </p>
               <form
                   onSubmit={handleModalSubmit}
                   className={'modal'}
-                  style={{ flexDirection: 'row' }}>
-                <Space style={{ width: '100%' }}>
+                  style={{ flexDirection: 'row' }}
+              >
+                <Space className={'full-width'}>
                   <Input
                       defaultValue="Combine input and button"
                       value={areaValue}
                       ref={inputRef}
-                      onChange={(e) => setAreaValue(e.target.value)}
+                      onChange={(e) => {
+                        setAreaValue(e.target.value);
+                      }}
                   />
-                  <Button type="primary">Submit</Button>
+                  <Button
+                      onClick={handleModalSubmit}
+                      type="primary">Submit</Button>
                 </Space>
-
               </form>
             </div>
         )}
+        {
+          imageUrl && (
+                <Button
+                  className={'save-image-button'}
+                  type={'dashed'} onClick={handleSave}>Save</Button>
+            )
+        }
       </div>
   );
 };

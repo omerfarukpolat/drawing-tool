@@ -63,6 +63,10 @@
   color: firebrick;
 }
 
+.delete-area {
+  margin: 5px;
+}
+
 .delete-icon-container {
   display: flex;
   align-items: center;
@@ -103,6 +107,25 @@
 
 .modal {
   flex-direction: row;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.drag-area-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 70vh;
+  width: 100vw
+}
+
+.save-image-button {
+  position: absolute;
+  top: 8vh;
+    right: 20vw;
 }
 
 @keyframes App-logo-spin {
